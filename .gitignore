@@ -1,5 +1,4 @@
 node_modules/
-bun.lock
 .env
 .env.local
 .DS_Store

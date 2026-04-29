@@ -161,6 +161,20 @@ Text replies also work (`yes XXXXX` / `always XXXXX` / `no XXXXX` where `XXXXX` 
 - **HTTPS required**: Meta delivers webhooks only to valid HTTPS URLs. Localhost direct doesn't work — you need a tunnel.
 - **One plugin instance per machine**: the plugin uses a PID lock at `~/.claude/channels/whatsapp/plugin.pid` to kill stale instances. Running multiple Claude sessions with this plugin on the same state directory will not work as expected.
 
+## Development
+
+Dependencies are pinned via `bun.lock`, which is committed. Plugin start runs `bun install --frozen-lockfile`, so an out-of-date lockfile fails fast instead of silently pulling new versions.
+
+To update a dependency:
+
+```sh
+bun update <package>      # bumps to latest within caret range
+# or edit package.json by hand, then:
+bun install               # regenerates bun.lock
+```
+
+Then commit both `package.json` and `bun.lock` together. CI runs `bun install --frozen-lockfile` and rejects PRs with lockfile drift.
+
 ## Privacy
 
 All plugin data lives on the user's local machine. The maintainer does not operate any backend that this plugin talks to. See [PRIVACY.md](./PRIVACY.md) for the full policy.
