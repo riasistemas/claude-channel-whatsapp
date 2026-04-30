@@ -215,11 +215,16 @@ const SECRET_PATTERNS: Array<[RegExp, string | ((m: string) => string)]> = [
   [/xox[baprs]-[A-Za-z0-9-]+/g, '***'],
   [/(ghp_|gho_|github_pat_)[A-Za-z0-9_]+/g, '***'],
   [/AKIA[0-9A-Z]{16}/g, '***'],
-  [/Bearer\s+[A-Za-z0-9._-]+/gi, 'Bearer ***'],
+  [/\b(Bearer|Basic)\s+[A-Za-z0-9._=+/-]+/gi, (m: string) => m.split(/\s+/)[0] + ' ***'],
   [/sk-(ant-)?[A-Za-z0-9_-]{20,}/g, '***'],
   [/\b\d{3}\.\d{3}\.\d{3}-\d{2}\b/g, '***'],
   [/\b\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}\b/g, '***'],
   [/\b[A-Z][A-Z0-9_]*=("[^"]{8,}"|'[^']{8,}'|[^\s'"`;&|]{8,})/g, (m: string) => m.split('=')[0] + '=***'],
+  // Lowercase env-style with known secret-key vocabulary.
+  // Anchored on a closed list (password, token, api_key, secret, auth)
+  // to avoid masking benign assignments like `pass=true` or `auth=basic`.
+  // Value cutoff at 6 chars (vs 8 for uppercase) catches shorter tokens.
+  [/\b(pass(?:word)?|tokens?|api[_-]?keys?|secrets?|auth|credentials?)\s*[:=]\s*['"]?[^\s'"`;&|]{6,}['"]?/gi, (m: string) => m.replace(/(\s*[:=]\s*).+/, '$1***')],
   [/\b[A-Za-z0-9+/=_-]{32,}\b/g, '***'],
 ]
 
