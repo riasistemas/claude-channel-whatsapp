@@ -4,6 +4,26 @@ All notable changes to this plugin are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.7] — 2026-04-29
+
+Metadata sync release. No behavioral changes.
+
+### Changed
+
+- `.claude-plugin/plugin.json` was previously stuck at `0.1.5` while
+  `package.json`, the git tag `v0.1.6`, and the CHANGELOG had moved on.
+  Per the [plugin manifest schema](https://code.claude.com/docs/en/plugins-reference#plugin-manifest-schema),
+  if `version` is set in `plugin.json`, that value wins over the
+  marketplace entry — so users on `0.1.5` could miss patch updates
+  including the `0.1.6` security release. This bump realigns all
+  three sources at `0.1.7`.
+- Enriched `.claude-plugin/plugin.json` with the canonical metadata
+  block (`$schema`, `author`, `homepage`, `repository`, `license`).
+  These were already present in the marketplace catalog
+  (`riasistemas/claude-plugins`) but missing from the plugin
+  manifest itself, so installs that bypass the marketplace lacked
+  attribution and license info.
+
 ## [0.1.6] — 2026-04-29
 
 Security hotfix release. Closes the v0.1.6 blockers from the external
