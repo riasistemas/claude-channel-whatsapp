@@ -225,6 +225,29 @@ const SECRET_PATTERNS: Array<[RegExp, string | ((m: string) => string)]> = [
   [/\b[A-Za-z0-9+/=_-]{32,}\b/g, '***'],
 ]
 
+/**
+ * Sanitize an attacker-controlled display name (`pushName`) before
+ * interpolating into the permission relay body. WhatsApp users pick
+ * their own profile name, so the value can contain:
+ * - WhatsApp markdown (`*bold*`, `_italic_`, `~strike~`, `` `code` ``)
+ *   that confuses the operator's view of the relay body.
+ * - Zero-width / BIDI override chars that homograph the surrounding
+ *   prose ("During conversation with *Reinaldo*" mimicking).
+ * - Control chars or absurdly long names (rate limit at 32 chars).
+ *
+ * Returns empty string when the input is null/empty/all-stripped, so
+ * the caller can fall back to the phone display.
+ */
+function sanitizeDisplayName(name: string | null | undefined): string {
+  if (!name) return ''
+  return name
+    .replace(/[\x00-\x1f\x7f]/g, '')
+    .replace(/[\u200B-\u200F\u202A-\u202E\u2066-\u2069]/g, '')
+    .replace(/[*_~`]/g, '')
+    .slice(0, 32)
+    .trim()
+}
+
 function sanitizeSecrets(text: string): string {
   let out = text
   for (const [re, replacer] of SECRET_PATTERNS) {
@@ -1042,7 +1065,7 @@ mcp.setNotificationHandler(
     // or by 5min TTL expiry — see ACTIVE_TASK_TTL_MS).
     let contextLine = ''
     if (activeTask && activeTask.status === 'processing' && activeTask.expiresAt > Date.now()) {
-      const who = activeTask.pushName || `+${normalizePhone(activeTask.phone)}`
+      const who = sanitizeDisplayName(activeTask.pushName) || `+${normalizePhone(activeTask.phone)}`
       const tag = activeTask.relationship === 'prospect' ? ' _(prospect)_' : ''
       contextLine = `👤 During conversation with *${who}*${tag}\n_Task: ${activeTask.id}_\n\n`
     } else {
