@@ -15,6 +15,7 @@ import { Database } from 'bun:sqlite'
 import { readFileSync, writeFileSync, readdirSync, mkdirSync, rmSync, existsSync, realpathSync } from 'fs'
 import { homedir } from 'os'
 import { basename, join, resolve, sep } from 'path'
+import { randomInt } from 'crypto'
 import { z } from 'zod'
 
 // ── Config ──────────────────────────────────────────────────────────────────
@@ -352,10 +353,13 @@ function pruneExpired(access: Access): boolean {
 
 function newPairingCode(): string {
   // 6-char code from a-km-z (no l/L to avoid confusion with 1/I).
+  // randomInt is CSPRNG-backed (Node's crypto module). Math.random is
+  // not — predictable enough that an attacker observing one issued
+  // code could narrow the next one's search space materially.
   const alphabet = 'abcdefghijkmnopqrstuvwxyz'
   let code = ''
   for (let i = 0; i < 6; i++) {
-    code += alphabet[Math.floor(Math.random() * alphabet.length)]
+    code += alphabet[randomInt(0, alphabet.length)]
   }
   return code
 }
