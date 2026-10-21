@@ -4,6 +4,25 @@ All notable changes to this plugin are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.9] — 2026-10-21
+
+The 0.1.8 bundle (`dist/server.js`, ~600 KB) was over the directory's
+256 KiB per-file limit, so the validator could not inspect it. This
+release ships readable source instead.
+
+### Changed
+
+- **Zero runtime dependencies.** `@modelcontextprotocol/sdk` and `zod` are
+  replaced by `lib/mcp.ts`, a ~100-line MCP stdio server (initialize, ping,
+  tools/list, tools/call, inbound and outbound notifications).
+- `dist/` is now plain `tsc` output, one file per source file
+  (`dist/server.js` ~66 KB, `dist/lib/mcp.js` ~4 KB), comments kept.
+- `bun.lock` and `.npmrc` removed: with no runtime dependencies there is
+  nothing to install, and a lockfile at the plugin root would make Claude
+  Code install dependencies at load time.
+- Dev tooling is `typescript` + `@types/node`, exact-pinned. CI uses Node
+  only.
+
 ## [0.1.8] — 2026-10-21
 
 Runtime change for the Claude plugin directory. The directory validator

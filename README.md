@@ -163,28 +163,16 @@ Text replies also work (`yes XXXXX` / `always XXXXX` / `no XXXXX` where `XXXXX` 
 
 ## Development
 
-The plugin ships a prebuilt bundle at `dist/server.js` with all dependencies inlined, and `.mcp.json` runs it directly with `node`. Nothing is installed or downloaded when the plugin starts.
+The plugin has no runtime dependencies: the MCP stdio protocol is implemented in `lib/mcp.ts`. The source is TypeScript, compiled file by file (no bundling, no minification) into readable JavaScript under `dist/`, which `.mcp.json` runs directly with `node`. Nothing is installed or downloaded when the plugin starts.
 
-Development uses [Bun](https://bun.sh) for the build. After changing `server.ts`, rebuild and commit `dist/server.js` with it:
-
-```sh
-bun install --frozen-lockfile
-bun run build             # writes dist/server.js
-```
-
-CI rebuilds the bundle and fails if the committed `dist/server.js` is out of date.
-
-Dependencies are pinned via `bun.lock`, which is committed.
-
-To update a dependency:
+After changing `server.ts` or `lib/`, rebuild and commit `dist/` with it:
 
 ```sh
-bun update <package>      # bumps to latest within caret range
-# or edit package.json by hand, then:
-bun install               # regenerates bun.lock
+npm install               # dev tools only: typescript, @types/node (exact-pinned)
+npm run build             # writes dist/server.js and dist/lib/*.js
 ```
 
-Then commit both `package.json` and `bun.lock` together. CI runs `bun install --frozen-lockfile` and rejects PRs with lockfile drift.
+CI rebuilds `dist/` and fails if the committed copy is out of date.
 
 ## Privacy
 

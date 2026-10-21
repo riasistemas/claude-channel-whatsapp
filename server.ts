@@ -5,19 +5,14 @@
  * emits MCP channel notifications, and replies via Graph API.
  */
 
-import { Server } from '@modelcontextprotocol/sdk/server/index.js'
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
-import {
-  ListToolsRequestSchema,
-  CallToolRequestSchema,
-} from '@modelcontextprotocol/sdk/types.js'
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite'
 import { createServer } from 'node:http'
 import { readFileSync, writeFileSync, appendFileSync, unlinkSync, readdirSync, mkdirSync, rmSync, existsSync, realpathSync } from 'fs'
 import { homedir } from 'os'
 import { basename, join, resolve, sep } from 'path'
 import { createHmac, randomInt } from 'crypto'
-import { z } from 'zod'
+
+import { McpServer } from './lib/mcp.ts'
 
 // ── Config ──────────────────────────────────────────────────────────────────
 
@@ -933,7 +928,7 @@ async function sendVoice(
 
 // ── MCP Server ──────────────────────────────────────────────────────────────
 
-const mcp = new Server(
+const mcp = new McpServer(
   { name: 'whatsapp', version: '1.0.0' },
   {
     capabilities: {
@@ -1029,17 +1024,10 @@ function resolveInboundForPermission(
 }
 
 mcp.setNotificationHandler(
-  z.object({
-    method: z.literal('notifications/claude/channel/permission_request'),
-    params: z.object({
-      request_id: z.string(),
-      tool_name: z.string(),
-      description: z.string(),
-      input_preview: z.string(),
-    }),
-  }),
+  'notifications/claude/channel/permission_request',
   async ({ params }) => {
-    const { request_id, tool_name, description, input_preview } = params
+    const { request_id, tool_name, description, input_preview } = params ?? {}
+    if (![request_id, tool_name, description, input_preview].every(v => typeof v === 'string')) return
     const pattern = permissionPattern(tool_name, description, input_preview)
 
     // Auto-allow if pattern matches a session-level approved one
@@ -1113,7 +1101,7 @@ mcp.setNotificationHandler(
 
 // ── Tools ───────────────────────────────────────────────────────────────────
 
-mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
+mcp.setRequestHandler('tools/list', async () => ({
   tools: [
     {
       name: 'reply',
@@ -1175,7 +1163,7 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
   ],
 }))
 
-mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
+mcp.setRequestHandler('tools/call', async (req) => {
   const args = (req.params.arguments ?? {}) as Record<string, unknown>
   try {
     switch (req.params.name) {
@@ -1627,8 +1615,7 @@ setInterval(() => {
 }, 60_000).unref()
 
 // Connect MCP transport FIRST — must be ready before notifications
-const transport = new StdioServerTransport()
-await mcp.connect(transport)
+await mcp.connect()
 log('MCP connected')
 
 // ── HTTP webhook receiver ───────────────────────────────────────────────────
