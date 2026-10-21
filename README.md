@@ -6,7 +6,7 @@ The MCP server receives WhatsApp webhooks from Meta over HTTP, forwards inbound 
 
 ## Prerequisites
 
-- [Bun](https://bun.sh) — the MCP server runs on Bun. Install with `curl -fsSL https://bun.sh/install | bash`.
+- [Node.js](https://nodejs.org) 22.13 or newer — the MCP server runs on Node (it uses the built-in `node:sqlite`).
 - A [Meta Developer account](https://developers.facebook.com/) with a WhatsApp Business app (free tier OK for testing).
 - A WABA phone number connected to that app (Meta provides a free test number for development).
 - A way to expose your local webhook publicly: [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/install-and-setup/installation/) (recommended), [ngrok](https://ngrok.com/), or any HTTPS tunnel.
@@ -163,7 +163,18 @@ Text replies also work (`yes XXXXX` / `always XXXXX` / `no XXXXX` where `XXXXX` 
 
 ## Development
 
-Dependencies are pinned via `bun.lock`, which is committed. Plugin start runs `bun install --frozen-lockfile`, so an out-of-date lockfile fails fast instead of silently pulling new versions.
+The plugin ships a prebuilt bundle at `dist/server.js` with all dependencies inlined, and `.mcp.json` runs it directly with `node`. Nothing is installed or downloaded when the plugin starts.
+
+Development uses [Bun](https://bun.sh) for the build. After changing `server.ts`, rebuild and commit `dist/server.js` with it:
+
+```sh
+bun install --frozen-lockfile
+bun run build             # writes dist/server.js
+```
+
+CI rebuilds the bundle and fails if the committed `dist/server.js` is out of date.
+
+Dependencies are pinned via `bun.lock`, which is committed.
 
 To update a dependency:
 

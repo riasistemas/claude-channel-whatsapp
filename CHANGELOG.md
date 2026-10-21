@@ -4,6 +4,28 @@ All notable changes to this plugin are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.8] — 2026-10-21
+
+Runtime change for the Claude plugin directory. The directory validator
+only reads MCP servers started with `node`, `python`, `java` or `docker`
+(or a script shipped in the plugin), and flagged `bun run … start`
+because the real command lived in a `package.json` script and ran
+`bun install` at every start.
+
+### Changed
+
+- The server now runs on **Node.js 22.13+** instead of Bun. `.mcp.json`
+  starts `node ${CLAUDE_PLUGIN_ROOT}/dist/server.js` directly.
+- `dist/server.js` is a prebuilt bundle (`bun run build`) with the MCP SDK
+  and zod inlined. Nothing is installed or downloaded at plugin start.
+- Bun-only APIs replaced with Node equivalents: `bun:sqlite` →
+  `node:sqlite`, `Bun.serve` → `node:http`, `Bun.CryptoHasher` →
+  `crypto.createHmac`, `Bun.file` → `fs.readFileSync`.
+- SQLite calls go through a small `prepare()` wrapper that binds
+  `undefined` as `NULL` and booleans as `0`/`1`, as `bun:sqlite` did —
+  `node:sqlite` would throw instead.
+- CI rebuilds the bundle and fails if the committed `dist/` is stale.
+
 ## [0.1.7] — 2026-04-29
 
 Metadata sync release. No behavioral changes.

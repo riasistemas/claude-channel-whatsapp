@@ -11,11 +11,12 @@ import {
   ListToolsRequestSchema,
   CallToolRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js'
-import { Database } from 'bun:sqlite'
-import { readFileSync, writeFileSync, readdirSync, mkdirSync, rmSync, existsSync, realpathSync } from 'fs'
+import { DatabaseSync, type SQLInputValue } from 'node:sqlite'
+import { createServer } from 'node:http'
+import { readFileSync, writeFileSync, appendFileSync, unlinkSync, readdirSync, mkdirSync, rmSync, existsSync, realpathSync } from 'fs'
 import { homedir } from 'os'
 import { basename, join, resolve, sep } from 'path'
-import { randomInt } from 'crypto'
+import { createHmac, randomInt } from 'crypto'
 import { z } from 'zod'
 
 // ── Config ──────────────────────────────────────────────────────────────────
@@ -103,7 +104,7 @@ const LOG_PATH = join(STATE_DIR, 'plugin.log')
 function fileLog(msg: string) {
   const ts = new Date().toISOString()
   const line = `${ts} [PID ${process.pid}] ${msg}\n`
-  try { require('fs').appendFileSync(LOG_PATH, line) } catch {}
+  try { appendFileSync(LOG_PATH, line) } catch {}
 }
 
 function acquireLock() {
@@ -125,7 +126,7 @@ function releaseLock() {
   try {
     const current = readFileSync(PID_PATH, 'utf-8').trim()
     if (current === String(process.pid)) {
-      require('fs').unlinkSync(PID_PATH)
+      unlinkSync(PID_PATH)
       fileLog(`lock released`)
     }
   } catch {}
@@ -272,7 +273,21 @@ mkdirSync(join(STATE_DIR, 'approved'), { recursive: true, mode: 0o700 })
 const REAL_MEDIA_DIR = realpathSync(MEDIA_DIR)
 const REAL_STATE_DIR = realpathSync(STATE_DIR)
 
-const db = new Database(DB_PATH)
+const db = new DatabaseSync(DB_PATH)
+
+// bun:sqlite bound `undefined` as NULL and booleans as 0/1; node:sqlite
+// throws on both. Normalize so call sites keep the old behavior.
+function bind(args: unknown[]): SQLInputValue[] {
+  return args.map(a => (a === undefined ? null : typeof a === 'boolean' ? Number(a) : a)) as SQLInputValue[]
+}
+function prepare(sql: string) {
+  const stmt = db.prepare(sql)
+  return {
+    run: (...args: unknown[]) => stmt.run(...bind(args)),
+    get: (...args: unknown[]) => stmt.get(...bind(args)),
+    all: (...args: unknown[]) => stmt.all(...bind(args)),
+  }
+}
 db.exec('PRAGMA journal_mode=WAL')
 db.exec(`
   CREATE TABLE IF NOT EXISTS messages (
@@ -289,20 +304,20 @@ db.exec(`
   );
 `)
 
-const stmtInsertMsg = db.prepare(
+const stmtInsertMsg = prepare(
   `INSERT OR IGNORE INTO messages (wamid, from_phone, timestamp, type, body, media_id, is_from_me)
    VALUES (?, ?, ?, ?, ?, ?, ?)`,
 )
-const stmtHistory = db.prepare(
+const stmtHistory = prepare(
   `SELECT * FROM messages WHERE from_phone = ? ORDER BY timestamp DESC LIMIT ?`,
 )
-const stmtGetByWamid = db.prepare(
+const stmtGetByWamid = prepare(
   `SELECT wamid, from_phone, type, body, is_from_me FROM messages WHERE wamid = ?`,
 )
-const stmtAllHistory = db.prepare(
+const stmtAllHistory = prepare(
   `SELECT * FROM messages ORDER BY timestamp DESC LIMIT ?`,
 )
-const stmtInsertSent = db.prepare(
+const stmtInsertSent = prepare(
   `INSERT OR IGNORE INTO messages (wamid, from_phone, timestamp, type, body, is_from_me, processed)
    VALUES (?, ?, ?, 'text', ?, 1, 1)`,
 )
@@ -818,8 +833,7 @@ async function uploadMedia(
   filePath: string,
   mimeType: string,
 ): Promise<string> {
-  const file = Bun.file(filePath)
-  const blob = new Blob([await file.arrayBuffer()], { type: mimeType })
+  const blob = new Blob([readFileSync(filePath)], { type: mimeType })
   const form = new FormData()
   form.append('messaging_product', 'whatsapp')
   form.append('type', mimeType)
@@ -1624,7 +1638,7 @@ log('MCP connected')
 
 function verifyHubSignature(rawBody: string, signatureHeader: string | null): boolean {
   if (!signatureHeader) return false
-  const expected = 'sha256=' + new Bun.CryptoHasher('sha256', APP_SECRET)
+  const expected = 'sha256=' + createHmac('sha256', APP_SECRET)
     .update(rawBody)
     .digest('hex')
   // Constant-time comparison to avoid timing attacks.
@@ -1636,57 +1650,77 @@ function verifyHubSignature(rawBody: string, signatureHeader: string | null): bo
   return mismatch === 0
 }
 
-const httpServer = Bun.serve({
-  port: WEBHOOK_PORT,
-  async fetch(req) {
-    const url = new URL(req.url)
+async function handleRequest(req: Request): Promise<Response> {
+  const url = new URL(req.url)
 
-    // Health check
-    if (url.pathname === '/health') {
-      return new Response('ok', { status: 200 })
+  // Health check
+  if (url.pathname === '/health') {
+    return new Response('ok', { status: 200 })
+  }
+
+  // Webhook verification (Meta calls this once when you save the URL)
+  if (req.method === 'GET' && url.pathname === '/webhook') {
+    const mode = url.searchParams.get('hub.mode')
+    const token = url.searchParams.get('hub.verify_token')
+    const challenge = url.searchParams.get('hub.challenge')
+    if (mode === 'subscribe' && token === VERIFY_TOKEN && challenge) {
+      log('webhook verified')
+      return new Response(challenge, { status: 200 })
     }
+    log('webhook verification failed')
+    return new Response('forbidden', { status: 403 })
+  }
 
-    // Webhook verification (Meta calls this once when you save the URL)
-    if (req.method === 'GET' && url.pathname === '/webhook') {
-      const mode = url.searchParams.get('hub.mode')
-      const token = url.searchParams.get('hub.verify_token')
-      const challenge = url.searchParams.get('hub.challenge')
-      if (mode === 'subscribe' && token === VERIFY_TOKEN && challenge) {
-        log('webhook verified')
-        return new Response(challenge, { status: 200 })
-      }
-      log('webhook verification failed')
-      return new Response('forbidden', { status: 403 })
+  // Webhook delivery
+  if (req.method === 'POST' && url.pathname === '/webhook') {
+    const rawBody = await req.text()
+    const sig = req.headers.get('x-hub-signature-256')
+    if (!verifyHubSignature(rawBody, sig)) {
+      log('webhook signature invalid')
+      return new Response('invalid signature', { status: 401 })
     }
-
-    // Webhook delivery
-    if (req.method === 'POST' && url.pathname === '/webhook') {
-      const rawBody = await req.text()
-      const sig = req.headers.get('x-hub-signature-256')
-      if (!verifyHubSignature(rawBody, sig)) {
-        log('webhook signature invalid')
-        return new Response('invalid signature', { status: 401 })
-      }
-      try {
-        const payload = JSON.parse(rawBody)
-        log(`webhook received (${rawBody.length} bytes)`)
-        // Process asynchronously — Meta expects 200 within 20 seconds.
-        void processWebhookPayload(payload)
-      } catch (err) {
-        log(`webhook parse error: ${err}`)
-      }
-      return new Response('ok', { status: 200 })
+    try {
+      const payload = JSON.parse(rawBody)
+      log(`webhook received (${rawBody.length} bytes)`)
+      // Process asynchronously — Meta expects 200 within 20 seconds.
+      void processWebhookPayload(payload)
+    } catch (err) {
+      log(`webhook parse error: ${err}`)
     }
+    return new Response('ok', { status: 200 })
+  }
 
-    return new Response('not found', { status: 404 })
-  },
-  error(err) {
+  return new Response('not found', { status: 404 })
+}
+
+// node:http adapter — buffers the request into a Fetch `Request` so the
+// handler above stays runtime-agnostic.
+const httpServer = createServer(async (nodeReq, nodeRes) => {
+  let res: Response
+  try {
+    const chunks: Buffer[] = []
+    for await (const chunk of nodeReq) chunks.push(chunk as Buffer)
+    const headers = new Headers()
+    for (const [k, v] of Object.entries(nodeReq.headers)) {
+      if (v !== undefined) headers.set(k, Array.isArray(v) ? v.join(', ') : v)
+    }
+    const hasBody = nodeReq.method !== 'GET' && nodeReq.method !== 'HEAD'
+    res = await handleRequest(new Request(`http://localhost${nodeReq.url ?? '/'}`, {
+      method: nodeReq.method,
+      headers,
+      body: hasBody ? Buffer.concat(chunks) : undefined,
+    }))
+  } catch (err) {
     log(`http server error: ${err}`)
-    return new Response('internal error', { status: 500 })
-  },
+    res = new Response('internal error', { status: 500 })
+  }
+  nodeRes.writeHead(res.status, Object.fromEntries(res.headers))
+  nodeRes.end(Buffer.from(await res.arrayBuffer()))
 })
-
-log(`webhook listening on http://localhost:${httpServer.port}/webhook`)
+httpServer.on('error', err => log(`http server error: ${err}`))
+httpServer.listen(WEBHOOK_PORT, () => {
+  log(`webhook listening on http://localhost:${WEBHOOK_PORT}/webhook`)
+})
 
 // Shutdown — when Claude Code closes the MCP stdio connection, stdin gets
 // EOF/close. Without this the plugin keeps running as a zombie, racing
@@ -1711,7 +1745,7 @@ process.on('SIGINT', () => shutdown('SIGINT'))
 process.on('SIGHUP', () => shutdown('SIGHUP'))
 
 // Orphan watchdog: stdin events above don't reliably fire when the parent
-// chain (`bun run` wrapper → shell → us) is severed by a crash. Poll for
+// chain is severed by a crash. Poll for
 // reparenting (POSIX) or a dead stdin pipe and self-terminate.
 const bootPpid = process.ppid
 setInterval(() => {
