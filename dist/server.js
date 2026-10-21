@@ -6,16 +6,31 @@
  */
 import { DatabaseSync } from 'node:sqlite';
 import { createServer } from 'node:http';
-import { readFileSync, writeFileSync, appendFileSync, unlinkSync, readdirSync, mkdirSync, rmSync, realpathSync } from 'fs';
+import { readFileSync, writeFileSync, appendFileSync, unlinkSync, readdirSync, mkdirSync, rmSync, realpathSync, chmodSync } from 'fs';
 import { homedir } from 'os';
 import { basename, join, resolve, sep } from 'path';
 import { createHmac, randomInt } from 'crypto';
 import { McpServer } from "./lib/mcp.js";
 // ── Config ──────────────────────────────────────────────────────────────────
+const STATE_DIR = process.env.WHATSAPP_STATE_DIR ?? join(homedir(), '.claude', 'channels', 'whatsapp');
+const ENV_FILE = join(STATE_DIR, '.env');
+// Load ~/.claude/channels/whatsapp/.env into process.env. Real env wins.
+// Plugin-spawned servers don't get an env block — /whatsapp:configure
+// writes the credentials here.
+try {
+    // Credentials — lock to owner. No-op on Windows.
+    chmodSync(ENV_FILE, 0o600);
+    for (const line of readFileSync(ENV_FILE, 'utf8').split(/\r?\n/)) {
+        const m = line.match(/^(\w+)=(.*)$/);
+        if (m && process.env[m[1]] === undefined)
+            process.env[m[1]] = m[2];
+    }
+}
+catch { }
 function requireEnv(name) {
     const v = process.env[name];
     if (!v) {
-        process.stderr.write(`whatsapp channel: missing required env var ${name}\n`);
+        process.stderr.write(`whatsapp channel: missing required env var ${name} — run /whatsapp:configure\n`);
         process.exit(1);
     }
     return v;
@@ -57,7 +72,6 @@ let activeTask = null;
 const WEBHOOK_PORT = Number(process.env.WHATSAPP_PORT ?? '3789');
 const PHONE_REGION = (process.env.WHATSAPP_PHONE_REGION ?? 'intl').toLowerCase();
 const TIMEZONE = process.env.WHATSAPP_TIMEZONE ?? 'UTC';
-const STATE_DIR = process.env.WHATSAPP_STATE_DIR ?? join(homedir(), '.claude', 'channels', 'whatsapp');
 const MEDIA_DIR = join(STATE_DIR, 'media');
 const DB_PATH = join(STATE_DIR, 'messages.db');
 const ACCESS_PATH = join(STATE_DIR, 'access.json');

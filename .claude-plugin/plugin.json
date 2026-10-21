@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "whatsapp",
   "description": "WhatsApp channel for Claude Code — messaging bridge with built-in access control. Manage pairing, allowlists, and policy via /whatsapp:access.",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "author": {
     "name": "RIA Systems",
     "email": "suporte@riasistemas.com.br"

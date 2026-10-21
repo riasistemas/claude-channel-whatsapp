@@ -4,6 +4,23 @@ All notable changes to this plugin are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.10] — 2026-10-21
+
+### Added
+
+- Plugin icon (`.claude-plugin/icon.png`, 1024×1024).
+
+### Fixed
+
+- README install step adds the `riasistemas/claude-plugins` catalog. The
+  old `github://riasistemas/claude-channel-whatsapp` source stopped working
+  when `marketplace.json` moved to the catalog.
+- The server now reads `~/.claude/channels/whatsapp/.env`, where
+  `/whatsapp:configure` saves the credentials. Before, it only read the
+  process env, which a plugin-spawned server doesn't get, so it exited on
+  boot with "missing required env var". Real env vars still win over the
+  file, and the missing-var error now points to `/whatsapp:configure`.
+
 ## [0.1.9] — 2026-10-21
 
 The 0.1.8 bundle (`dist/server.js`, ~600 KB) was over the directory's
