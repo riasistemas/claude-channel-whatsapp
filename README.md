@@ -39,10 +39,12 @@ openssl rand -hex 32
 These are Claude Code commands — run `claude` to start a session first.
 
 ```
-/plugin marketplace add github://riasistemas/claude-channel-whatsapp
+/plugin marketplace add riasistemas/claude-plugins
 /plugin install whatsapp@riasistemas
 /reload-plugins
 ```
+
+Or install it from the [Claude plugin directory](https://claude.ai/directory) — it syncs to Claude Code as `whatsapp@anthropic-plugin-directory`.
 
 **3. Save credentials.**
 
@@ -82,6 +84,8 @@ The server only starts when this flag is present. Exit your session and start a 
 ```sh
 claude --channels plugin:whatsapp@riasistemas
 ```
+
+If you installed from the directory, use `plugin:whatsapp@anthropic-plugin-directory`.
 
 **7. Allow your number.**
 
