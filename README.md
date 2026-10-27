@@ -1,8 +1,12 @@
-# WhatsApp
+# WhatsApp channel (local)
 
-Connect a WhatsApp Business number to your Claude Code via the official WhatsApp Cloud API.
+`whatsapp-local` connects a WhatsApp Business number to Claude Code through your own Meta app and the official WhatsApp Cloud API.
 
 The MCP server receives WhatsApp webhooks from Meta over HTTP, forwards inbound messages to your Claude Code session, and replies through the Cloud API. Built on the official Meta Graph API — uses your WABA tokens, not WhatsApp Web reverse-engineering.
+
+> **Where it runs**: Claude Code. The MCP server is a local process that receives Meta's webhooks through a tunnel, with a Meta app you own. If you don't want to run a Meta app, use the `whatsapp` plugin from the [Claude directory](https://claude.ai/directory) instead; it works on every Claude surface.
+>
+> This is the `local` branch of [claude-channel-whatsapp](https://github.com/riasistemas/claude-channel-whatsapp). Until v0.1.10 it shipped as the `whatsapp` plugin; from v0.2.0 the local channel is this separate plugin.
 
 ## Prerequisites
 
@@ -40,19 +44,15 @@ These are Claude Code commands — run `claude` to start a session first.
 
 ```
 /plugin marketplace add riasistemas/claude-plugins
-/plugin install whatsapp@riasistemas
+/plugin install whatsapp-local@riasistemas
 /reload-plugins
 ```
 
-Or install it from the [Claude plugin directory](https://claude.ai/directory) — it syncs to Claude Code as `whatsapp@anthropic-plugin-directory`.
-
 **3. Save credentials.**
 
-```
-/whatsapp:configure WHATSAPP_ACCESS_TOKEN=<token> WHATSAPP_PHONE_NUMBER_ID=<id> WHATSAPP_WABA_ID=<id> WHATSAPP_VERIFY_TOKEN=<random> WHATSAPP_APP_SECRET=<secret>
-```
+When you enable the plugin, Claude Code asks for the access token, phone number ID, WhatsApp Business Account ID, verify token and app secret (plus four optional fields). The token and secrets go to your system keychain. To change them later, open `/plugin`, pick `whatsapp-local` and configure it.
 
-Writes to `~/.claude/channels/whatsapp/.env` (mode 600). You can also write that file by hand or set the variables in your shell — shell takes precedence.
+Installs set up before v0.2.0 keep working: the server still reads `~/.claude/channels/whatsapp/.env` (written by `/whatsapp-local:configure KEY=VALUE`) for any value the options leave empty.
 
 **4. Expose the local webhook over HTTPS.**
 
@@ -82,17 +82,15 @@ Then click **Manage** under **Webhook fields** and subscribe to at least `messag
 The server only starts when this flag is present. Exit your session and start a new one:
 
 ```sh
-claude --channels plugin:whatsapp@riasistemas
+claude --channels plugin:whatsapp-local@riasistemas
 ```
-
-If you installed from the directory, use `plugin:whatsapp@anthropic-plugin-directory`.
 
 **7. Allow your number.**
 
 The default `dmPolicy` is `allowlist` — strangers are dropped silently. Add the phone(s) that should reach you:
 
 ```
-/whatsapp:access allow <phone>
+/whatsapp-local:access allow <phone>
 ```
 
 `<phone>` is digits-only, E.164, no `+` (e.g. `15551234567`). Send a WhatsApp message from that number to the WABA and it reaches your Claude Code session.
@@ -100,10 +98,10 @@ The default `dmPolicy` is `allowlist` — strangers are dropped silently. Add th
 If you'd rather have senders self-onboard via a code instead of pre-adding them (e.g. customer support), flip to `pairing`:
 
 ```
-/whatsapp:access policy pairing
+/whatsapp-local:access policy pairing
 ```
 
-In `pairing` mode, an unknown sender gets a 6-character code reply; you approve it with `/whatsapp:access pair <code>`. Each pairing reply costs one outbound message inside the WhatsApp 24-hour customer-service window.
+In `pairing` mode, an unknown sender gets a 6-character code reply; you approve it with `/whatsapp-local:access pair <code>`. Each pairing reply costs one outbound message inside the WhatsApp 24-hour customer-service window.
 
 ## Access control
 
@@ -130,6 +128,8 @@ When `WHATSAPP_PERMISSION_TARGET` is set, the channel exposes the `claude/channe
 Text replies also work (`yes XXXXX` / `always XXXXX` / `no XXXXX` where `XXXXX` is the 5-char request ID shown in the message). Replies are honored **only** from the configured target — other allowlisted contacts cannot answer permission prompts.
 
 ## Environment variables
+
+The plugin's options fill these variables (for example, the access token option sets `WHATSAPP_ACCESS_TOKEN`). The ones without an option can be set in your shell or in `~/.claude/channels/whatsapp/.env`.
 
 ### Required
 

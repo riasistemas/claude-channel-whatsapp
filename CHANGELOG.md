@@ -4,6 +4,26 @@ All notable changes to this plugin are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0-local] — 2026-10-26
+
+### Changed
+
+- The local channel is now its own plugin, `whatsapp-local`, served from
+  the `local` branch through the `riasistemas/claude-plugins` catalog
+  (`/plugin install whatsapp-local@riasistemas`). The `whatsapp` plugin in
+  the Claude directory no longer runs a local server.
+- Credentials are plugin options: Claude Code asks for them when the plugin
+  is enabled and keeps the token and secrets in the system keychain. The
+  server still reads `~/.claude/channels/whatsapp/.env` for any option left
+  empty, so existing installs keep working.
+- Skills, tools and the channel source are namespaced `whatsapp-local`
+  (`/whatsapp-local:configure`, `/whatsapp-local:access`,
+  `plugin:whatsapp-local@riasistemas`).
+
+### Removed
+
+- The plugin icon (`.claude-plugin/icon.png`).
+
 ## [0.1.10] — 2026-10-21
 
 ### Added

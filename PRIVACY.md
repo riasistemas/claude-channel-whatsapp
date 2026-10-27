@@ -1,8 +1,8 @@
 # Privacy Policy
 
-Last updated: 2026-04-26
+Last updated: 2026-10-26
 
-This privacy policy describes how the **`whatsapp` plugin for Claude Code** (the "plugin") handles data. It applies to anyone who installs and uses the plugin.
+This privacy policy describes how the **`whatsapp-local` plugin for Claude Code** (the "plugin") handles data. It applies to anyone who installs and uses the plugin.
 
 The plugin is open-source software distributed under Apache-2.0 and maintained by RIA Systems. The maintainer does **not** operate any backend that the plugin connects to. All data flow is between the user's own machine, the user's own WhatsApp Business Account, and Meta Platforms, Inc.
 
@@ -23,7 +23,7 @@ The plugin reads and writes the following on the user's machine:
 | --- | --- | --- |
 | WhatsApp message history (inbound + outbound) | `~/.claude/channels/whatsapp/messages.db` (SQLite) | Lets the `chat_messages` tool surface recent context to the assistant |
 | Allowlist, group policy, pairing pending entries | `~/.claude/channels/whatsapp/access.json` | Access control state |
-| Cloud API credentials | `~/.claude/channels/whatsapp/.env` (mode 600) | Required to talk to the Meta Cloud API |
+| Cloud API credentials | The plugin's options in Claude Code (token and secrets in the system keychain), or `~/.claude/channels/whatsapp/.env` (mode 600) for installs set up before v0.2.0 | Required to talk to the Meta Cloud API |
 | Inbound media (images, audio, documents, video) | `~/.claude/channels/whatsapp/media/` | So the assistant can read attached files via local file paths |
 | PID lock and operational logs | `~/.claude/channels/whatsapp/plugin.pid`, `plugin.log` | Lifecycle management |
 
@@ -54,7 +54,7 @@ Because all plugin data lives on the user's local machine, the user is in full c
 - **Access**: open `~/.claude/channels/whatsapp/messages.db` with any SQLite client.
 - **Export**: copy the state directory.
 - **Delete**: remove the state directory (`rm -rf ~/.claude/channels/whatsapp/`). The plugin recreates an empty state on next start.
-- **Rectification**: edit `access.json` directly or use the `/whatsapp:access` skill.
+- **Rectification**: edit `access.json` directly or use the `/whatsapp-local:access` skill.
 
 For data held by Meta (the messages themselves, contact metadata, etc.), refer to [Meta's WhatsApp Business Privacy Policy](https://www.whatsapp.com/legal/business-policy) and the rights it grants under applicable law.
 

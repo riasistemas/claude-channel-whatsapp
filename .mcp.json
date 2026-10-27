@@ -2,7 +2,18 @@
   "mcpServers": {
     "whatsapp": {
       "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/dist/server.js"]
+      "args": ["${CLAUDE_PLUGIN_ROOT}/dist/server.js"],
+      "env": {
+        "WHATSAPP_ACCESS_TOKEN": "${user_config.access_token}",
+        "WHATSAPP_PHONE_NUMBER_ID": "${user_config.phone_number_id}",
+        "WHATSAPP_WABA_ID": "${user_config.waba_id}",
+        "WHATSAPP_VERIFY_TOKEN": "${user_config.verify_token}",
+        "WHATSAPP_APP_SECRET": "${user_config.app_secret}",
+        "WHATSAPP_SELF_PHONE": "${user_config.self_phone}",
+        "WHATSAPP_PERMISSION_TARGET": "${user_config.permission_target}",
+        "WHATSAPP_PHONE_REGION": "${user_config.phone_region}",
+        "WHATSAPP_TIMEZONE": "${user_config.timezone}"
+      }
     }
   }
 }

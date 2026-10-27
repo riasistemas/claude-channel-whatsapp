@@ -1,13 +1,15 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
-  "name": "whatsapp",
-  "description": "WhatsApp channel for Claude Code — messaging bridge with built-in access control. Manage pairing, allowlists, and policy via /whatsapp:access.",
-  "version": "0.1.10",
+  "name": "whatsapp-local",
+  "displayName": "WhatsApp channel (local)",
+  "description": "WhatsApp channel for Claude Code that runs on your machine with your own Meta app — messaging bridge on the official WhatsApp Cloud API, with built-in access control. Manage pairing, allowlists, and policy via /whatsapp-local:access.",
+  "version": "0.2.0",
   "author": {
     "name": "RIA Systems",
-    "email": "suporte@riasistemas.com.br"
+    "email": "suporte@riasistemas.com.br",
+    "url": "https://github.com/riasistemas"
   },
-  "homepage": "https://github.com/riasistemas/claude-channel-whatsapp",
+  "homepage": "https://github.com/riasistemas/claude-channel-whatsapp/tree/local#readme",
   "repository": "https://github.com/riasistemas/claude-channel-whatsapp",
   "license": "Apache-2.0",
   "keywords": [
@@ -15,5 +17,61 @@
     "messaging",
     "channel",
     "mcp"
+  ],
+  "channels": [
+    {
+      "server": "whatsapp",
+      "displayName": "WhatsApp",
+      "userConfig": {
+        "access_token": {
+          "type": "string",
+          "title": "WhatsApp access token",
+          "description": "Long-lived System User token with whatsapp_business_messaging and whatsapp_business_management",
+          "sensitive": true
+        },
+        "phone_number_id": {
+          "type": "string",
+          "title": "Phone number ID",
+          "description": "ID of the WhatsApp Business number (WhatsApp → API Setup), not the phone number itself"
+        },
+        "waba_id": {
+          "type": "string",
+          "title": "WhatsApp Business Account ID",
+          "description": "ID of the WhatsApp Business Account the number belongs to"
+        },
+        "verify_token": {
+          "type": "string",
+          "title": "Webhook verify token",
+          "description": "Random string you choose; paste the same value into the webhook settings of your Meta app",
+          "sensitive": true
+        },
+        "app_secret": {
+          "type": "string",
+          "title": "Meta app secret",
+          "description": "Used to check the HMAC-SHA256 signature of each webhook",
+          "sensitive": true
+        },
+        "self_phone": {
+          "type": "string",
+          "title": "Business phone number (optional)",
+          "description": "The WhatsApp Business number itself, digits only (E.164 without +); filters outbound echoes"
+        },
+        "permission_target": {
+          "type": "string",
+          "title": "Permission prompts phone (optional)",
+          "description": "Phone, digits only, that receives Claude's permission prompts and is the only one allowed to answer them; leave empty to turn the relay off"
+        },
+        "phone_region": {
+          "type": "string",
+          "title": "Phone matching region (optional)",
+          "description": "Set to BR for Brazilian DDD9 matching; leave empty for international"
+        },
+        "timezone": {
+          "type": "string",
+          "title": "Timezone (optional)",
+          "description": "IANA timezone for the local time shown with each message, such as America/Sao_Paulo; defaults to UTC"
+        }
+      }
+    }
   ]
 }

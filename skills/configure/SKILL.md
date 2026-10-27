@@ -10,10 +10,14 @@ allowed-tools:
   - Bash(chmod *)
 ---
 
-# /whatsapp:configure — WhatsApp Channel Setup
+# /whatsapp-local:configure — WhatsApp Channel Setup
 
-Writes WhatsApp Cloud API credentials to `~/.claude/channels/whatsapp/.env`
-and orients the user on access policy. The server reads `.env` once at boot.
+Checks the channel's credentials and access policy. The preferred place for
+credentials is the plugin's options: Claude Code asks for them when the
+plugin is enabled, stores the token and secrets in the system keychain, and
+the user can change them later from `/plugin`. This skill can also write them
+to `~/.claude/channels/whatsapp/.env`, which the server reads at boot as a
+fallback; options set in `/plugin` win over the file.
 
 Arguments passed: `$ARGUMENTS`
 
@@ -54,7 +58,9 @@ Read state files and give the user a complete picture:
 
 1. **Credentials** — check `~/.claude/channels/whatsapp/.env`. For each
    required key, show set/not-set; if set, mask everything except the first
-   6 and last 4 chars.
+   6 and last 4 chars. Values saved in the plugin's options aren't readable
+   from here: if the file is missing a key, say it may already be set in
+   `/plugin` and that the server's boot error names any key still missing.
 
 2. **Access** — read `~/.claude/channels/whatsapp/access.json` (missing file
    = defaults: `dmPolicy: "allowlist"`, empty allowlist). Show:
@@ -64,18 +70,18 @@ Read state files and give the user a complete picture:
      in `pairing` mode)
 
 3. **What next** — end with a concrete next step based on state:
-   - Missing required env vars → list them and tell the user
-     *"Run `/whatsapp:configure <key>=<value>` for each, or paste your full
-     `.env` block."*
+   - Missing required env vars → list them and tell the user to fill them
+     in the plugin's options (`/plugin` → whatsapp-local → configure), or to
+     run `/whatsapp-local:configure <key>=<value>` for each.
    - All env vars set, no allowed phones, policy is `allowlist` (default) →
      *"Configure your webhook URL in the Meta App Dashboard pointing to a
      public tunnel (cloudflared/ngrok) of
      `http://localhost:<WHATSAPP_PORT>/webhook`, then add allowed contacts
-     with `/whatsapp:access allow <phone>` (E.164 digits only, no `+`)."*
+     with `/whatsapp-local:access allow <phone>` (E.164 digits only, no `+`)."*
    - Token set, someone allowed → *"Ready. Send WhatsApp messages to your
      WABA number to reach the assistant."*
    - Policy is `pairing` and pending entries → list them so the operator
-     can run `/whatsapp:access pair <code>` for each.
+     can run `/whatsapp-local:access pair <code>` for each.
 
 **Recommended: stay on `allowlist`.** Unlike Telegram or Discord (where
 the bot identifier is opaque so pairing is the only way to discover IDs),
@@ -90,19 +96,26 @@ Drive the conversation this way:
 1. Read the allowlist. Tell the user who's in it.
 2. Ask: *"Is that everyone who should reach you through this WABA?"*
 3. **If allowlist is empty (fresh setup)** → *"Add the phones that should
-   reach you with `/whatsapp:access allow <phone>` (digits only, no +).
+   reach you with `/whatsapp-local:access allow <phone>` (digits only, no +).
    On WhatsApp the sender ID is the phone number itself — no need to send
    a test message first."*
 4. **If policy is `pairing` and the allowlist looks right** → *"Switch to
    `allowlist` so strangers don't trigger paid replies:
-   `/whatsapp:access policy allowlist`."* Offer this proactively.
-5. **If someone is missing** → *"Just add them: `/whatsapp:access allow
+   `/whatsapp-local:access policy allowlist`."* Offer this proactively.
+5. **If someone is missing** → *"Just add them: `/whatsapp-local:access allow
    <phone>`. If you'd rather have them message first to confirm the right
-   number, briefly flip with `/whatsapp:access policy pairing` → they
+   number, briefly flip with `/whatsapp-local:access policy pairing` → they
    message → you pair → flip back."*
 
 Don't push pairing as the default. WhatsApp's phone-as-ID model makes
 direct allowlist the natural fit.
+
+**Where it runs**: the channel is a local MCP server that receives Meta's
+webhooks through a tunnel, with the user's own Meta app, so it runs in
+Claude Code. If the WhatsApp tools (`reply`, `react`, `chat_messages`) aren't
+available in this session, say so plainly instead of walking the user
+through credentials, and point them to the `whatsapp` plugin in the Claude
+directory, which works on every Claude surface without a Meta app.
 
 ### `<key>=<value>` — save one credential
 
@@ -136,7 +149,7 @@ other unrelated keys are in the file).
 - The server reads `.env` once at boot. Credential changes require a
   session restart or `/reload-plugins`. Say so after saving.
 - `access.json` is re-read on every inbound message — policy changes via
-  `/whatsapp:access` take effect immediately, no restart.
+  `/whatsapp-local:access` take effect immediately, no restart.
 - Never log full token values. Always mask in output.
 - The webhook URL configured in the Meta dashboard must point to a
   publicly reachable HTTPS endpoint (cloudflared, ngrok, or similar
