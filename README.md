@@ -1,186 +1,67 @@
 # WhatsApp
 
-Connect a WhatsApp Business number to your Claude Code via the official WhatsApp Cloud API.
+A Claude plugin that helps you answer WhatsApp messages. Paste a
+conversation or a screenshot and Claude drafts the reply in your voice, reads
+where the lead stands and suggests the next step. You send the reply yourself.
 
-The MCP server receives WhatsApp webhooks from Meta over HTTP, forwards inbound messages to your Claude Code session, and replies through the Cloud API. Built on the official Meta Graph API — uses your WABA tokens, not WhatsApp Web reverse-engineering.
+Works on claude.ai, the Claude desktop and mobile apps, Cowork and Claude
+Code. No WhatsApp login, no Meta app, no tokens.
 
-## Prerequisites
+## Skills
 
-- [Node.js](https://nodejs.org) 22.13 or newer — the MCP server runs on Node (it uses the built-in `node:sqlite`).
-- A [Meta Developer account](https://developers.facebook.com/) with a WhatsApp Business app (free tier OK for testing).
-- A WABA phone number connected to that app (Meta provides a free test number for development).
-- A way to expose your local webhook publicly: [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/install-and-setup/installation/) (recommended), [ngrok](https://ngrok.com/), or any HTTPS tunnel.
+| Skill | What it does |
+| --- | --- |
+| `/whatsapp:inbox` | Drafts a reply to a WhatsApp conversation you paste (text or screenshot), with a short lead read and a next step. Claude also uses it on its own when you paste a WhatsApp conversation. |
+| `/whatsapp:configure` | Explains what the plugin does on each Claude app and the options to connect a number. |
 
-## Quick Setup
-> See [ACCESS.md](./ACCESS.md) for DM policies, groups, and multi-user setups.
+Example:
 
-**1. Create a WhatsApp Business app on Meta.**
+> **You:** /whatsapp:inbox *(screenshot of a chat: "hi, do you have a slot
+> this week? how much is the first visit?")*
+>
+> **Claude:** a two-sentence reply with a `[price]` placeholder and one
+> question about the best day, then: *Lead: warm, wants to book, budget
+> unknown. Next step: answer, then offer two time slots.*
 
-Go to [developers.facebook.com](https://developers.facebook.com/), create a new app, choose **Business** type, and add the **WhatsApp** product. Meta gives you a test phone number and a temporary 24h access token immediately.
+## Install
 
-For production use, you'll want a **System User token** (long-lived) instead of the temporary one. From your **Business Manager → Users → System Users**, create one with `whatsapp_business_messaging` and `whatsapp_business_management` permissions, then generate a token.
+Find "whatsapp" in the [Claude directory](https://claude.ai/directory) and
+add it. A plugin added on claude.ai also loads in Claude Code through
+account sync.
 
-You'll need four IDs from the Meta App Dashboard:
-
-- **App Secret** — App Settings → Basic → App Secret (Show)
-- **Phone Number ID** — WhatsApp → API Setup (NOT the phone number itself)
-- **WhatsApp Business Account ID** — same page
-- **Access Token** — System User token from above (or temp 24h one for testing)
-
-Plus pick a **Verify Token** of your own — any random string. You'll paste the same value into Meta when configuring the webhook URL.
-
-```sh
-# generate one with:
-openssl rand -hex 32
-```
-
-**2. Install the plugin.**
-
-These are Claude Code commands — run `claude` to start a session first.
+In Claude Code you can also install it from RIA Systems' catalog:
 
 ```
 /plugin marketplace add riasistemas/claude-plugins
 /plugin install whatsapp@riasistemas
-/reload-plugins
 ```
 
-Or install it from the [Claude plugin directory](https://claude.ai/directory) — it syncs to Claude Code as `whatsapp@anthropic-plugin-directory`.
+## Connected version
 
-**3. Save credentials.**
+This plugin doesn't read or send WhatsApp messages by itself. RIA Systems is
+building a connected version where you connect your WhatsApp Business
+number and Claude reads and answers your messages. To hear when it opens,
+join the [waitlist](https://claude-plugins.riasistemas.com.br/en#waitlist).
 
-```
-/whatsapp:configure WHATSAPP_ACCESS_TOKEN=<token> WHATSAPP_PHONE_NUMBER_ID=<id> WHATSAPP_WABA_ID=<id> WHATSAPP_VERIFY_TOKEN=<random> WHATSAPP_APP_SECRET=<secret>
-```
+## Local channel for developers
 
-Writes to `~/.claude/channels/whatsapp/.env` (mode 600). You can also write that file by hand or set the variables in your shell — shell takes precedence.
-
-**4. Expose the local webhook over HTTPS.**
-
-In a separate terminal:
-
-```sh
-cloudflared tunnel --url http://localhost:3789
-```
-
-Cloudflared prints a public URL like `https://random-words.trycloudflare.com`. Copy it.
-
-> The free anonymous tunnel URL changes every restart. For a stable setup, run `cloudflared tunnel login` once and create a [named tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/get-started/create-remote-tunnel/), or use `ngrok http 3789` with a reserved domain.
-
-**5. Configure the webhook in Meta.**
-
-In your Meta App Dashboard → **WhatsApp → Configuration → Webhook → Edit**:
-
-- **Callback URL**: `<your-tunnel-url>/webhook`
-- **Verify token**: same value you set as `WHATSAPP_VERIFY_TOKEN`
-
-Click **Verify and save** — Meta hits your local server with a verification request, your plugin echoes back the challenge, and the webhook is active.
-
-Then click **Manage** under **Webhook fields** and subscribe to at least `messages`.
-
-**6. Relaunch Claude Code with the channel flag.**
-
-The server only starts when this flag is present. Exit your session and start a new one:
-
-```sh
-claude --channels plugin:whatsapp@riasistemas
-```
-
-If you installed from the directory, use `plugin:whatsapp@anthropic-plugin-directory`.
-
-**7. Allow your number.**
-
-The default `dmPolicy` is `allowlist` — strangers are dropped silently. Add the phone(s) that should reach you:
+Up to v0.1.10 this plugin also ran a local MCP server that received Meta's
+webhooks with your own Meta app. That channel is now a separate plugin,
+`whatsapp-local`, for Claude Code:
 
 ```
-/whatsapp:access allow <phone>
+/plugin marketplace add riasistemas/claude-plugins
+/plugin install whatsapp-local@riasistemas
 ```
 
-`<phone>` is digits-only, E.164, no `+` (e.g. `15551234567`). Send a WhatsApp message from that number to the WABA and it reaches your Claude Code session.
-
-If you'd rather have senders self-onboard via a code instead of pre-adding them (e.g. customer support), flip to `pairing`:
-
-```
-/whatsapp:access policy pairing
-```
-
-In `pairing` mode, an unknown sender gets a 6-character code reply; you approve it with `/whatsapp:access pair <code>`. Each pairing reply costs one outbound message inside the WhatsApp 24-hour customer-service window.
-
-## Access control
-
-See **[ACCESS.md](./ACCESS.md)** for DM policies, groups, mention detection, delivery config, skill commands, and the `access.json` schema.
-
-Quick reference: phones are stored as **digits-only E.164** (no `+`). Default policy is `allowlist`. Set `WHATSAPP_PHONE_REGION=BR` to handle Brazilian DDD9 matching automatically.
-
-## Tools exposed to the assistant
-
-| Tool | Purpose |
-| --- | --- |
-| `reply` | Send to a chat. Takes `chat_id` + `text`, optionally `files` (absolute paths) for attachments. Files are dispatched by extension: `.jpg`/`.jpeg`/`.png`/`.webp` → inline image; `.ogg`/`.opus` → **voice note** (forced `voice:true` — must be OGG/Opus, MP3 won't render as voice); everything else (`.pdf`, `.docx`, `.mp4`, etc.) → document. Auto-chunks long text at 4000 chars. |
-| `react` | Add an emoji reaction to a message by ID. Any single emoji works. |
-| `chat_messages` | Read recent message history for a chat (or all chats), straight from the local SQLite. |
-
-### Permission relay
-
-When `WHATSAPP_PERMISSION_TARGET` is set, the channel exposes the `claude/channel/permission` capability. Claude Code's permission prompts (when a tool needs approval to run) are forwarded to the configured phone as a WhatsApp message with three interactive buttons:
-
-- **✅ Allow** — approve once
-- **🔁 Always** — approve and auto-approve future requests matching the same pattern for the rest of the session
-- **❌ Deny** — reject
-
-Text replies also work (`yes XXXXX` / `always XXXXX` / `no XXXXX` where `XXXXX` is the 5-char request ID shown in the message). Replies are honored **only** from the configured target — other allowlisted contacts cannot answer permission prompts.
-
-## Environment variables
-
-### Required
-
-| Var | What it is |
-| --- | --- |
-| `WHATSAPP_ACCESS_TOKEN` | Long-lived System User token with `whatsapp_business_messaging` scope |
-| `WHATSAPP_PHONE_NUMBER_ID` | The phone number ID from Meta App Dashboard |
-| `WHATSAPP_WABA_ID` | WhatsApp Business Account ID |
-| `WHATSAPP_VERIFY_TOKEN` | Random string you choose; paste same value into Meta's webhook config |
-| `WHATSAPP_APP_SECRET` | Meta App Secret used for HMAC-SHA256 signature verification |
-
-### Optional
-
-| Var | Default | Purpose |
-| --- | --- | --- |
-| `WHATSAPP_PORT` | `3789` | Local HTTP port for webhook receiver |
-| `WHATSAPP_SELF_PHONE` | (empty) | Your WABA phone — used to filter outbound echoes |
-| `WHATSAPP_PERMISSION_TARGET` | (empty) | Phone allowed to answer Claude's permission prompts |
-| `WHATSAPP_PHONE_REGION` | `intl` | Set to `BR` for Brazilian DDD9 matching |
-| `WHATSAPP_TIMEZONE` | `UTC` | IANA timezone for `local_time` in notifications |
-| `WHATSAPP_STATE_DIR` | `~/.claude/channels/whatsapp` | Override state directory |
-| `WHATSAPP_GRAPH_API_VERSION` | `v24.0` | Graph API version |
-
-## What you don't get
-
-- **Templates** — sending pre-approved message templates outside the 24-hour customer-service window. The Cloud API supports them; this plugin currently doesn't expose a tool for it. Workaround: call the Graph API directly from a script.
-- **Buffered inbound when offline** — Meta retries webhook deliveries for up to 24 hours, so short outages recover automatically. Longer outages drop messages. If you need indefinite buffering, put a webhook receiver of your own (CF Worker, Lambda, etc.) in front of the plugin.
-
-## Limitations
-
-- **24-hour customer-service window**: Meta restricts free-form messages to the 24 hours after the user's last inbound. Outside that window you can only send pre-approved templates.
-- **Rate limits**: Meta enforces per-second and per-day limits depending on your messaging tier (free test number caps at 250 unique recipients/24h).
-- **HTTPS required**: Meta delivers webhooks only to valid HTTPS URLs. Localhost direct doesn't work — you need a tunnel.
-- **One plugin instance per machine**: the plugin uses a PID lock at `~/.claude/channels/whatsapp/plugin.pid` to kill stale instances. Running multiple Claude sessions with this plugin on the same state directory will not work as expected.
-
-## Development
-
-The plugin has no runtime dependencies: the MCP stdio protocol is implemented in `lib/mcp.ts`. The source is TypeScript, compiled file by file (no bundling, no minification) into readable JavaScript under `dist/`, which `.mcp.json` runs directly with `node`. Nothing is installed or downloaded when the plugin starts.
-
-After changing `server.ts` or `lib/`, rebuild and commit `dist/` with it:
-
-```sh
-npm install               # dev tools only: typescript, @types/node (exact-pinned)
-npm run build             # writes dist/server.js and dist/lib/*.js
-```
-
-CI rebuilds `dist/` and fails if the committed copy is out of date.
+Its code and docs live on the [`local` branch](https://github.com/riasistemas/claude-channel-whatsapp/tree/local).
+Credentials saved by earlier versions in `~/.claude/channels/whatsapp/.env`
+keep working there.
 
 ## Privacy
 
-All plugin data lives on the user's local machine. The maintainer does not operate any backend that this plugin talks to. See [PRIVACY.md](./PRIVACY.md) for the full policy.
+The plugin has no server, makes no network calls and stores nothing. See
+[PRIVACY.md](./PRIVACY.md).
 
 ## License
 
@@ -188,4 +69,7 @@ Apache-2.0.
 
 ## Maintainer
 
-Maintained by [RIA Systems](https://github.com/riasistemas), a Meta Tech Provider. Issues and PRs welcome at the [standalone repo](https://github.com/riasistemas/claude-channel-whatsapp).
+Maintained by [RIA Systems](https://github.com/riasistemas). Not affiliated
+with or endorsed by Meta or Anthropic. WhatsApp is a trademark of Meta
+Platforms, Inc. Issues and pull requests are welcome in the
+[repository](https://github.com/riasistemas/claude-channel-whatsapp).

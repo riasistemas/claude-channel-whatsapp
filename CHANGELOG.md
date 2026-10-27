@@ -4,6 +4,32 @@ All notable changes to this plugin are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] — 2026-10-26
+
+### Changed
+
+- **Skills only.** The plugin no longer starts a local MCP server, so it
+  works the same on claude.ai, the desktop and mobile apps, Cowork and
+  Claude Code, with no Meta app, tunnel or token.
+- `/whatsapp:configure` no longer asks for or saves credentials. If a token
+  is pasted, it advises revoking it. It explains what works today and the
+  options to connect a number.
+
+### Added
+
+- `/whatsapp:inbox`: paste a WhatsApp conversation, as text or a
+  screenshot, and get a reply ready to send, a short read of the lead and a
+  next step.
+- Directory listing links in `plugin.json`: documentation, support and
+  privacy policy.
+
+### Removed
+
+- The local channel (MCP server, `/whatsapp:access`, `ACCESS.md` and the
+  Node CI) moved to the `whatsapp-local` plugin on the `local` branch,
+  installed from the `riasistemas/claude-plugins` catalog.
+- The plugin icon (`.claude-plugin/icon.png`).
+
 ## [0.1.10] — 2026-10-21
 
 ### Added
